@@ -11,13 +11,16 @@ SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
 def search_google(query, num_results=10):
+    if not SERPER_API_KEY:
+        return {"error": "Serper API key not configured"}
+    
     url = "https://google.serper.dev/search"
     headers = {
         "X-API-KEY": SERPER_API_KEY,
         "Content-Type": "application/json"
     }
     payload = {"q": query, "num": num_results}
-    response = requests.post(url, headers=headers, json=payload)
+    response = requests.post(url, headers=headers, json=payload, timeout=10)
     
     if response.status_code == 200:
         data = response.json()
@@ -29,7 +32,7 @@ def search_google(query, num_results=10):
                 "link": item.get("link", "")
             })
         return results
-    return []
+    return {"error": f"Search failed: {response.status_code} - {response.text}"}
 
 def get_llm_response(prompt):
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -40,7 +43,7 @@ def get_llm_response(prompt):
         "X-Title": "ResearchBot"
     }
     payload = {
-        "model": "nvidia/nemotron-3-nano-omni-4b",
+        "model": "google/gemini-2.0-flash-001",
         "messages": [
             {"role": "system", "content": "You are a helpful research assistant. Provide clear, well-structured answers in a friendly tone."},
             {"role": "user", "content": prompt}
@@ -95,12 +98,24 @@ def chat():
     
     search_results = search_google(user_message)
     
+    if isinstance(search_results, dict) and "error" in search_results:
+        session["messages"].append({"role": "bot", "content": f"⚠️ {search_results['error']}", "time": datetime.now().strftime("%H:%M")})
+        session.modified = True
+        return jsonify({"error": search_results["error"]})
+    
+    if not search_results:
+        session["messages"].append({"role": "bot", "content": "⚠️ No search results found. Try a different query.", "time": datetime.now().strftime("%H:%M")})
+        session.modified = True
+        return jsonify({"error": "No results"})
+    
     session["messages"].append({"role": "bot", "content": "🔍 Searching Google...", "time": datetime.now().strftime("%H:%M"), "typing": True})
     
     report = generate_report(user_message, search_results)
     
-    session["messages"] = session["messages"][:-1]
-    session["messages"].append({"role": "bot", "content": report, "time": datetime.now().strftime("%H:%M")})
+    if "Error:" in report:
+        session["messages"].append({"role": "bot", "content": f"⚠️ LLM Error: {report}", "time": datetime.now().strftime("%H:%M")})
+    else:
+        session["messages"].append({"role": "bot", "content": report, "time": datetime.now().strftime("%H:%M")})
     
     session.modified = True
     
