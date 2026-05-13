@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResearchBot - Your Personal AI Researcher</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <span class="icon">🔍</span>
+                <h1>ResearchBot</h1>
+            </div>
+            <p class="tagline">Your personal AI researcher</p>
+        </header>
+
+        <div class="chat-container" id="chatContainer">
+            {% if messages|length == 0 %}
+            <div class="welcome-message">
+                <h2>Hello! I'm your research assistant.</h2>
+                <p>Just tell me what you want to research, and I'll find the information you need.</p>
+                <div class="examples">
+                    <button onclick="quickPrompt('Find me trending products for my Shopify store in 2026')">Trending Shopify products 2026</button>
+                    <button onclick="quickPrompt('Best AI tools for small business 2026')">Best AI tools for business</button>
+                    <button onclick="quickPrompt('How to start a podcast in 2026')">How to start a podcast</button>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% for msg in messages %}
+            <div class="message {{ msg.role }}">
+                <div class="message-content">
+                    {{ msg.content|replace('\n', '<br>')|safe }}
+                </div>
+                <span class="time">{{ msg.time }}</span>
+            </div>
+            {% endfor %}
+            
+            <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                <div class="message bot">
+                    <div class="message-content">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span>Searching Google...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-container">
+            <form id="chatForm">
+                <input type="text" id="userInput" placeholder="What would you like to research?" autocomplete="off" required>
+                <button type="submit">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </form>
+            <button class="clear-btn" onclick="clearChat()">Clear Chat</button>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById("chatContainer");
+        const chatForm = document.getElementById("chatForm");
+        const userInput = document.getElementById("userInput");
+        const typingIndicator = document.getElementById("typingIndicator");
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function quickPrompt(prompt) {
+            userInput.value = prompt;
+            chatForm.dispatchEvent(new Event("submit"));
+        }
+
+        async function clearChat() {
+            await fetch("/clear", { method: "POST" });
+            location.reload();
+        }
+
+        chatForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            const formData = new FormData();
+            formData.append("message", message);
+
+            userInput.value = "";
+            typingIndicator.style.display = "block";
+            scrollToBottom();
+
+            try {
+                const response = await fetch("/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+                typingIndicator.style.display = "none";
+
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    location.reload();
+                }
+            } catch (err) {
+                typingIndicator.style.display = "none";
+                alert("Something went wrong. Please try again.");
+            }
+        });
+
+        scrollToBottom();
+    </script>
+</body>
+</html>
