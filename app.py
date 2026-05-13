@@ -43,7 +43,7 @@ def get_llm_response(prompt):
         "X-Title": "ResearchBot"
     }
     payload = {
-        "model": "google/gemini-2.0-flash-001",
+        "model": "nvidia/llama-3.1-nemotron-70b-instruct",
         "messages": [
             {"role": "system", "content": "You are a helpful research assistant. Provide clear, well-structured answers in a friendly tone."},
             {"role": "user", "content": prompt}
